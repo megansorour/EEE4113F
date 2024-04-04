@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bird Weight Monitoring</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 400px;
+            min-height: 50px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bird Weight Monitoring</h1>
+    <div class="container">
+    <h2>Weight: <span id="weight">0</span> g</h2>
+</div>
+    <p> Last update: <span id="datetime"></span> </p>
+        <button type="button"
+        onclick="updateWeight()">Update Weight</button>
+        <br>
+        <br>
+        <button type="button"
+        onclick="updateWeight()">Download csv</button>
+        <!-- <button type="submit" onclick="window.open('file.doc')">Download!</button> -->
+
+    <script>
+        let monitoringInterval;
+
+        function startMonitoring() {
+            monitoringInterval = setInterval(updateWeight, 1000); // Update weight every second
+            document.querySelector('button[type="button"]').disabled = true;
+        }
+
+        function stopMonitoring() {
+            clearInterval(monitoringInterval);
+            document.querySelector('button[type="button"]').disabled = false;
+        }
+
+        function updateWeight() {
+            let weight = Math.floor(Math.random() * 1000); // Random weight for demonstration
+            document.getElementById('weight').innerText = weight;
+
+            // updating the time
+            const now = new Date();
+            const currentDateTime = now.toLocaleTimeString();
+            document.querySelector('#datetime').textContent = currentDateTime;
+
+            // logging the measurement to the csv
+          //  var f = "data.txt";
+                    }
+
+        // function downloadCSV (){
+
+        // }
+
+    </script>
+</body>
+</html>
