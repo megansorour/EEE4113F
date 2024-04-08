@@ -20,16 +20,17 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         .button {
-            background-color: #04AA6D;
+            background-color: #c8c8c8;
             border: none;
-            color: white;
-            padding: 15px 32px;
+            color: #000000;
+            padding: 10px 24px;
             text-align: center;
             text-decoration: none;
             display: inline-block;
             font-size: 16px;
             margin: 4px 2px;
             cursor: pointer;
+            border-radius: 10px;
             }
         h1 {
             color: #333;
@@ -39,15 +40,16 @@
 <body>
     <h1>Bird Weight Monitoring</h1>
     <div class="container">
-    <h2>Weight: <span id="weight">0</span> g</h2>
+   <!-- <p> Weight: </p> -->
+    <h2 style="font-size:40px;"> <span id="weight">0</span> g</h2>
 </div>
     <p> Last update: <span id="datetime"></span> </p>
-        <button type="button"
-        onclick="updateWeight()">Update Weight</button>
+        <button type="button" class="button"
+        onclick="updateWeight()">Log current weight</button>
         <br>
         <br>
-        <button type="button"
-        onclick="downloadCSV()">Download csv</button>
+        <button type="button" class="button"
+        onclick="downloadCSV()">Download log (.csv)</button>
         <!-- <button type="submit" onclick="window.open('file.doc')">Download!</button> -->
 
     <script>
