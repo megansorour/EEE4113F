@@ -48,9 +48,10 @@
         onclick="updateWeight()">Log current weight</button>
         <br>
         <br>
-        <button type="button" class="button"
-        onclick="downloadCSV()">Download log (.csv)</button>
-        <!-- <button type="submit" onclick="window.open('file.doc')">Download!</button> -->
+        <!--<button type="button" class="button"
+        onclick="downloadCSV()">Download log (.csv)</button> -->
+   
+        <button id="downloadButton">Download CSV</button>
 
     <script>
         let monitoringInterval;
@@ -79,33 +80,53 @@
             dataLog.push(currentTime);
             dataLog.push(weight);
                     }
+        // old download
+        // function downloadCSV (){ // writing data array to csv file
+        // //formatting array to string
+        // let csvContent = 'Time,Weight,\n';
+        // for (let i = 0; i < dataLog.length; i+=2){
+        //     let t = dataLog[i].substring(0, dataLog[i].length - 3)
+        //     csvContent = csvContent.concat(t, ',' , dataLog[i+1] , ',' , '\n');
+        // }
+        // csvContent = csvContent.substring(0, csvContent.length - 2);
 
-        function downloadCSV (){ // writing data array to csv file
-        //formatting array to string
-        let csvContent = 'Time,Weight,\n';
-        for (let i = 0; i < dataLog.length; i+=2){
-            let t = dataLog[i].substring(0, dataLog[i].length - 3)
-            csvContent = csvContent.concat(t, ',' , dataLog[i+1] , ',' , '\n');
-        }
-        csvContent = csvContent.substring(0, csvContent.length - 2);
+        // // creating csv
+        // const f = new Blob([csvContent], { type: 'text/csv;charset=utf-8,' });
+        // const objUrl = URL.createObjectURL(f);
 
-        // creating csv
-        const f = new Blob([csvContent], { type: 'text/csv;charset=utf-8,' });
-        const objUrl = URL.createObjectURL(f);
+        // //downloadable
+        // const link = document.createElement('a')
+        // link.setAttribute('href', objUrl)
+        // link.setAttribute('download', 'data_log.csv')
+        // link.textContent = 'Click to Download'
 
-        //downloadable
-        const link = document.createElement('a')
-        link.setAttribute('href', objUrl)
-        link.setAttribute('download', 'data_log.csv')
-        link.textContent = 'Click to Download'
+        // document.querySelector('body').append(link)
+        // // Automatically click the link to initiate download
+        // link.click();
 
-        document.querySelector('body').append(link)
-        // Automatically click the link to initiate download
-        link.click();
+        // // Remove the link from the document
+        // document.body.removeChild(link);
+        // }
+    document.getElementById("downloadButton").addEventListener("click", function() {
+    // Sample CSV content
+    const csvContent = "data:text/csv;charset=utf-8," +
+        "Column1,Column2,Column3\n" +
+        "Value1,Value2,Value3\n";
+    
+    // Create a CSV Blob
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    // Create a temporary <a> element and trigger the download
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "data.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+});
 
-        // Remove the link from the document
-        document.body.removeChild(link);
-        }
 
     </script>
 </body>
