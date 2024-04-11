@@ -3,6 +3,11 @@
 #include <WiFiAP.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include "SPIFFS.h"
+#include <FS.h>
+#include <sys/stat.h> //for accessing file info and file-related operations
+
+const char* logFileName = "/data_log.txt";
 
 const char *ssid = "DrongoScale";
 const char *password = "yourPassword7";
@@ -246,11 +251,36 @@ void setup(){
 
   // Start server
   server.begin();
+
+  // setting up SPIFFS
+  if (SPIFFS.begin(true)) {
+    Serial.println("SPIFFS mounted successfully.");
+  } else {
+    Serial.println("SPIFFS mount failed. Check your filesystem.");
+  }
+
 }
 
 void loop() {
   //simulating some kind of data monitoring function which produces a weight value
   delay(10000);
-  currentWeight = random(500);
+  currentWeight = random(500); //weight value
+
+  //opening the log file in append mode
+  File logFile = SPIFFS.open(logFileName, "a");
+
+  if (logFile){
+    //append weight and time to log file
+    logFile.print(millis());
+    logFile.print(", ");
+    logFile.print(currentWeight);
+    logFile.println();
+  }
+  else {
+    Serial.println("Failed to open log file for writing.");
+  }
+  logFile.close();
+
+  delay(10000);
 
 }
