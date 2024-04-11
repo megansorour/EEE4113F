@@ -69,7 +69,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 </div>
 <p> Last update: <span id="datetime"></span> </p>
     <button type="button" class="button"
-    onclick="logWeight()">Log current weight</button>
+    onclick="updateWeight()">Log current weight</button>
     <br>
     <br>
     <button class="button" id="downloadButton">Download CSV</button>
@@ -83,29 +83,36 @@ function toggleCheckbox(element) {
   else { xhr.open("GET", "/update?output="+element.id+"&state=0", true); }
   xhr.send();
 }
-  function logWeight() {
-    // logging the measurement to the data array
-    dataLog.push(document.getElementById('datetime').innerText);
-    dataLog.push(document.getElementById('weight').innerText);
-  }
-
   function updateWeight() {
-    fetch('/weight')
-    .then(response => response.json())
-    .then(data => {
-      document.getElementById('weight').innerText = data.weight;
-    })
-    .catch(error => {
-      console.error('Error fetching weight:', error);
-    });
+    let weight = Math.floor(Math.random() * 1000); // Random weight for demonstration
+    document.getElementById('weight').innerText = weight;
 
     // updating the time
     const now = new Date();
     const currentTime = now.toLocaleTimeString();
     document.querySelector('#datetime').textContent = currentTime;
+
+    // logging the measurement to the data array
+    dataLog.push(currentTime);
+    dataLog.push(weight);
       }
     
     document.getElementById("downloadButton").addEventListener("click", function() {
+        //formatting array to string
+        // const csvContent = 'Time,Weight,\n';
+        // for (let i = 0; i < dataLog.length; i+=2){
+        //     let t = dataLog[i].substring(0, dataLog[i].length - 3)
+        //     csvContent = csvContent.concat(t, ',' , dataLog[i+1] , ',' , '\n');
+        // }
+        // csvContent = csvContent.substring(0, csvContent.length - 2);
+    
+        // const csvContent = "data:text/csv;charset=utf-8," +
+        // "Column1,Column2,Column3\n" +
+        // "Value1,Value2,Value3\n";
+
+    // // Create a CSV Blob
+    // const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    // const url = URL.createObjectURL(blob);
     
   //v3
   // Create a CSV string
@@ -128,22 +135,28 @@ const url = URL.createObjectURL(blob);
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 });
-
-// Update weight every 5 seconds
-setInterval(updateWeight, 5000);
-
 </script>
 </body>
 </html>
 )rawliteral";
 
 // Replaces placeholder with button section in your web page
-String processor(const String& var){
-  //Serial.println(var);
-  if(var == "BUTTONPLACEHOLDER"){
-    String buttons = "";
-    buttons += "<h4>Output - Blue LED</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"2\" " + outputState(2) + "><span class=\"slider\"></span></label>";
-    return buttons;
+// String processor(const String& var){
+//   //Serial.println(var);
+//   if(var == "BUTTONPLACEHOLDER"){
+//     String buttons = "";
+//     buttons += "<h4>Output - Blue LED</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"2\" " + outputState(2) + "><span class=\"slider\"></span></label>";
+//     return buttons;
+//   }
+//   return String();
+// }
+
+// Replaces POST_WEIGHT weight placeholder in web page
+String processor(const String& var)
+{
+  if(var == "POST_WEIGHT")
+  {
+    return currentWeight;
   }
   return String();
 }
@@ -210,11 +223,6 @@ void setup(){
     request->send(200, "text/plain", "OK");
   });
 
-  // Set up the endpoint to return the current weight value
-  server.on("/weight", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "application/json", String("{\"weight\":") + currentWeight + "}");
-  });
-
     // GETting data log values from esp32
   // server.on("/log", HTTP_GET, [] (AsyncWebServerRequest *request) {
   //   String inputMessage1;
@@ -250,7 +258,7 @@ void setup(){
 
 void loop() {
   //simulating some kind of data monitoring function which produces a weight value
-  delay(10000);
+  delay(30000);
   currentWeight = random(500);
 
 }
