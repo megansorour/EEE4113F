@@ -127,8 +127,73 @@
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 });
+function downloadLog(){
+    fetch('/download')
+    .then(response => {
+        if(!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);}
+          return response.blob();
+      })
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "data.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    })
+    .catch(error => {
+      console.error('Error fetching data log file:', error);
+    })
 
+
+    // Create a temporary <a> element and trigger the download
+
+
+};
+//   document.getElementById("downloadButton").addEventListener("click", function() {
+    
+// //   //v3
+// //   // Create a CSV string
+// // // let csvContent = 'Time,Weight\n';
+// // // for (let i = 0; i < dataLog.length; i += 2) {
+// // //     let t = dataLog[i].substring(0, dataLog[i].length - 3);
+// // //     csvContent += t + ',' + dataLog[i + 1] + '\n';
+// // // }
+
+// // // // Create a CSV Blob
+// // // const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+// //function downloadLog(){
+//     fetch('/download')
+//     .then(response => {
+//         if(!response.ok) {
+//           throw new Error(`HTTP error! status: ${response.status}`);}
+//           return response.blob();
+//       })
+//     .then(blob => {
+//       const url = URL.createObjectURL(blob);
+//       const a = document.createElement("a");
+//       a.href = url;
+//       a.download = "data.csv";
+//       document.body.appendChild(a);
+//       a.click();
+//       document.body.removeChild(a);
+//       URL.revokeObjectURL(url);
+//     })
+//     .catch(error => {
+//       console.error('Error fetching data log file:', error);
+//     })
+
+
+//     // Create a temporary <a> element and trigger the download
+
+
+// });
 
     </script>
 </body>
 </html>
+

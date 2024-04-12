@@ -5,7 +5,7 @@
 #include <ESPAsyncWebServer.h>
 #include "SPIFFS.h"
 #include <FS.h>
-#include <sys/stat.h> //for accessing file info and file-related operations
+//#include <sys/stat.h> //for accessing file info and file-related operations
 
 const char* logFileName = "/data_log.txt";
 
@@ -79,11 +79,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     onclick="logWeight()">Log current weight</button>
     <br>
     <br>
-    <form method=\"post"\" action=\"upload\" enctype=\"multipart/form-data\">\
-      <input style=\"text-align: center;\" type=\"file\" name=\"upload\">\
-      <br><br>
-      <input type=\"submit\" value=\"Upload\">\
-    </form>\
+    <button onclick="window.location.href='/download'">Download TXT</button>
   %BUTTONPLACEHOLDER%
   
 <script>
@@ -178,24 +174,6 @@ String outputState(int output){
   request->send(404, "text/plain", "The page not found");
   }
 
-  void uploadFunction(){
-    Serial.println("Starting upload...");
-    HTTPUpload& upload= server.upload(); //this server responsible for upload
-    File file;
-    SPIFFS.remove("simple"); //name of file simple, removing
-    file= SPIFFS.open("/simple", "w");
-    file.write(upload.buf, upload.currentSize);  //writing received content to file
-
-    while(upload.status==UPLOAD_FILE_WRITE) //write to file until it's done
-      file.write(upload.buf, upload.currentSize);
-    
-    if(upload.status==UPLOAD_FILE_END){
-      Serial.print("Received file size");
-      Serial.println(file.size());
-      file.close();
-    }
-    if(SPIFFS.exists())
-}
 
 void setup(){
   // Serial port for debugging purposes
@@ -257,7 +235,10 @@ void setup(){
 //     request->send(response);
 // });
 
-  server.on("/upload", uploadFunction);
+  server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
+      request->send(SPIFFS, "/data_log.txt", "text/plain");
+  });
+
 
   server.onNotFound(notFound);
 
