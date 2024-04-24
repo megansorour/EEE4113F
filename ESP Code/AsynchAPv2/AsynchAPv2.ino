@@ -7,7 +7,7 @@
 #include <FS.h>
 //#include <sys/stat.h> //for accessing file info and file-related operations
 
-const char* logFileName = "/data_log.txt";
+const char* logFileName = "/data.txt";
 
 const char *ssid = "DrongoScale";
 const char *password = "yourPassword7";
@@ -79,7 +79,7 @@ const char index_html[] PROGMEM = R"rawliteral(
     onclick="logWeight()">Log current weight</button>
     <br>
     <br>
-    <button onclick="window.location.href='/download'">Download TXT</button>
+    <button id="downloadBtn">Download TXT</button>
   %BUTTONPLACEHOLDER%
   
 <script>
@@ -135,11 +135,22 @@ function toggleCheckbox(element) {
 //     });
 // });
 
-    
-
-
-
-
+//function download(){
+      document.getElementById("downloadBtn").onclick = function() {
+      fetch('/download')
+        .then(response => response.blob())
+        .then(blob => {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = url;
+          a.download = 'data.txt';
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+        })
+        .catch(error => console.error('Error downloading file:', error));
+}
 
 // Update weight every 5 seconds
 setInterval(updateWeight, 5000);
@@ -235,8 +246,21 @@ void setup(){
 //     request->send(response);
 // });
 
-  server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
-      request->send(SPIFFS, "/data_log.txt", "text/plain");
+  //server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
+      //request->send(SPIFFS, "/data_log.txt", "text/plain");
+  //});
+
+server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
+    Serial.println("Download request received");
+    
+    File file = SPIFFS.open("/data.txt", "r");
+    if (!file) {
+      request->send(404, "text/plain", "File not found");
+      return;
+    }
+
+    request->send(SPIFFS, "/data.txt", "text/plain", false);
+    file.close();
   });
 
 
