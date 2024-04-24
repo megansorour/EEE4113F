@@ -178,6 +178,8 @@ void setup(){
       log_e("Soft AP creation failed.");
       while(1);
     }
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(ssid, password);
     IPAddress myIP = WiFi.softAPIP();
     Serial.print("AP IP address: ");
     Serial.println(myIP);

@@ -15,7 +15,6 @@ const char *password = "yourPassword7";
 const char* PARAM_INPUT_1 = "output";
 const char* PARAM_INPUT_2 = "state";
 const char* PARAM_INPUT_3 = "weight";
-const char* PARAM_MESSAGE = "message";
 
 String currentWeight = "0";
 String timestamp = "0";
@@ -115,59 +114,21 @@ function updateWeight() {
 
   // updating the time on webpage
 const now = new Date();
-const currentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-document.querySelector('#datetime').textContent = currentTime;
+const currentTimeSec = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const currentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'});
+document.querySelector('#datetime').textContent = currentTimeSec;
 
-// V1 Send time to ESP32
-//   fetch('/upload', {
-//     method: 'POST',
-//     headers: {
-//       'Content-Type': 'text/plain'
-//     },
-//     body: currentTime
-//   })
-//   .then(response => response.text())
-//   .then(data => console.log(data))
-//   .catch(error => console.error('Error sending time:', error));
-
-// //   // Update time on the webpage
-// //   document.querySelector('#time').textContent = currentTime;
-     
-
-// //V2
-//   // Create a new XMLHttpRequest object
-//   var xhr = new XMLHttpRequest();
-
-//   // Configure the request
-//   xhr.open("POST", "/upload", true);
-//   xhr.setRequestHeader("Content-Type", "text/plain");
-
-//   // Send the timestamp
-//   xhr.send(currentTime);
-
-//   // Handle the response
-//   xhr.onreadystatechange = function () {
-//     if (xhr.readyState === 4) {
-//       if (xhr.status === 200) {
-//         console.log("Timestamp sent successfully");
-//       } else {
-//         console.error("Failed to send timestamp");
-//       }
-//     }
-//   };
-
-//V3
-// Send time to ESP32
-console.log('Sending time:', currentTime); // Add this line
+  // Send time to ESP32
+  console.log('Sending time:', currentTime);
   fetch('/upload', {
     method: 'POST',
     headers: {
-      'Content-Type': 'text/plain'
+      'Content-Type': 'application/x-www-form-urlencoded'
     },
-    body: currentTime
+    body: 'plain=' + encodeURIComponent(currentTime)
   })
   .then(response => response.text())
-  .then(data => console.log(data))
+  .then(data => console.log('Response:', data))
   .catch(error => console.error('Error sending time:', error));
   }
 
@@ -294,36 +255,10 @@ server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
     file.close();
   });
 
-
-//V1receiving the current timestamp from the server, manually parsing JSON
-// server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request){
-//   // Check if the request has a "plain" parameter
-//   if (!request->hasParam("plain", true)) {
-//     request->send(400, "text/plain", "Missing timestamp");
-//     return;
-//   }
-
-//   // Get the value of the "plain" parameter (the timestamp)
-//   AsyncWebParameter* plainParam = request->getParam("plain", true);
-//   if (!plainParam->isPost()) {
-//     request->send(400, "text/plain", "Invalid request");
-//     return;
-//   }
-
-//   // Get the timestamp value as a string
-//   timestamp = plainParam->value();
-
-//   // Handle the timestamp (e.g., store it with the weights)
-//   // Here, we simply respond with a success message
-//   request->send(200, "text/plain", "Timestamp received: " + timestamp);
-//   Serial.println(timestamp);
-// });
-
   server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request){
     // Get the timestamp value from the request body
     String currentTime;
     if (request->hasParam("plain", true)) {
-      //AsyncWebParameter* plainParam = request->getParam("plain", true);
       currentTime = request->getParam("plain", true)->value();
     
     // Store the timestamp in the global variable
