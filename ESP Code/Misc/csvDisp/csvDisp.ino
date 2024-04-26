@@ -64,7 +64,6 @@ const char index_html[] PROGMEM = R"rawliteral(
       cursor: pointer;
       border-radius: 10px;
       }
-    }
       html {font-family: Arial; display: inline-block; text-align: center;}
       h2 {font-size: 3.0rem;}
       body {max-width: 600px; margin:0px auto; padding-bottom: 25px;}
@@ -81,10 +80,14 @@ const char index_html[] PROGMEM = R"rawliteral(
     <br>
     <br> -->
     <button class="button" id="downloadBtn">Download data log</button>
-    <p id ="loading_indicator"> Loading... </p>
-    <p id="download_feedback"></p>
   
 <script>
+
+  function logWeight() {
+    // logging the measurement to the data array
+    dataLog.push(document.getElementById('datetime').innerText);
+    dataLog.push(document.getElementById('weight').innerText);
+  }
 
 function updateWeight() {
   fetch('/weight')
@@ -101,7 +104,7 @@ function updateWeight() {
   const currentTimeSec = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const currentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'});
   document.querySelector('#datetime').textContent = currentTimeSec;
-  document.getElementById('loading_indicator').style.visibility = "hidden";
+
   // Send time to ESP32
   console.log('Sending time:', currentTime);
   fetch('/upload', {
@@ -115,6 +118,9 @@ function updateWeight() {
   .then(data => console.log('Response:', data))
   .catch(error => console.error('Error sending time:', error));
   }
+
+// Update weight and send time to ESP32 every 5 seconds
+setInterval(updateWeight, 5000);
 
 // download log button
     document.getElementById("downloadBtn").onclick = function() {
@@ -133,23 +139,13 @@ function updateWeight() {
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
-        // Update feedback message to tell user download is complete
-        document.getElementById('download_feedback').innerText = 'Download complete!';
       })
-      .catch(error => {
-        console.error('Error downloading file:', error);
-        document.getElementById('download_feedback').innerText = 'Download failed.';
-      })
-      .finally(() => {
-        //remove download feedback after 5 seconds
-        setTimeout(() => {
-          document.getElementById('download_feedback').innerText = '';
-        }, 5000);
-      });  
+      .catch(error => console.error('Error downloading file:', error));
 }
 
-  // Update weight and send time to ESP32 every 5 seconds
-  setInterval(updateWeight, 5000);
+// Update weight every 5 seconds
+setInterval(updateWeight, 5000);
+//setInterval(checkUpdate, 5000);
 
 </script>
 </body>
@@ -243,7 +239,7 @@ server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
     logFile.print("Time");
     logFile.print(", ");
     logFile.print("Weight");
-    //logFile.print(", ");
+    logFile.print(", ");
     logFile.println();
   }
   else {
@@ -268,7 +264,7 @@ void loop() {
               logFile.print(timestamp);
               logFile.print(", ");
               logFile.print(currentWeight);
-            //  logFile.print(", ");
+              logFile.print(", ");
               logFile.println();
             }
             else {
@@ -300,3 +296,7 @@ String getWeight(){
   currentWeight = random(500); //random weight value
   return currentWeight;
 }
+
+
+
+
