@@ -64,6 +64,14 @@ const char index_html[] PROGMEM = R"rawliteral(
       cursor: pointer;
       border-radius: 10px;
       }
+    .box {
+      max-width: 70px;
+      min-height: 70px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #bddf98;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
       html {font-family: Arial; display: inline-block; text-align: center;}
       h2 {font-size: 3.0rem;}
@@ -73,16 +81,18 @@ const char index_html[] PROGMEM = R"rawliteral(
 <body>
   <h1>Bird Weight Monitoring</h1>
   <div class="container">
-  <h2 style="font-size:40px;"> Weight: <span id="weight"></span>g</h2>
-</div>
-<p> Last update: <span id="datetime"></span> </p>
-    <!-- <button type="button" class="button"
-     onclick="logWeight()">Log current weight</button> 
-    <br>
-    <br> -->
-    <button class="button" id="downloadBtn">Download data log</button>
-    <p id ="loading_indicator"> Loading... </p>
-    <p id="download_feedback"></p>
+    <h2 style="font-size:40px;"> Weight: <span id="weight"></span>g</h2>
+  </div>
+  <p> Last update: <span id="datetime"></span> </p>
+  <button class="button" id="downloadBtn">Download data log</button>
+  <br>
+  <br>
+  <button class="button" id="clear_log_btn">Clear data log</button>
+  <p id ="loading_indicator"> Loading... </p>
+  <p id="download_feedback"></p>
+  <div class="box">
+    <p>Events captured: <span id="num_logs"></span></p>
+  </div>
   
 <script>
 
@@ -117,39 +127,49 @@ function updateWeight() {
   }
 
 // download log button
-    document.getElementById("downloadBtn").onclick = function() {
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, '0');
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    fetch('/download')
-      .then(response => response.blob())
-      .then(blob => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        //a.download = 'data_.csv';
-        a.download = 'data_log_' + day + '-' + month + '.csv';
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        // Update feedback message to tell user download is complete
-        document.getElementById('download_feedback').innerText = 'Download complete!';
-      })
-      .catch(error => {
-        console.error('Error downloading file:', error);
-        document.getElementById('download_feedback').innerText = 'Download failed.';
-      })
-      .finally(() => {
-        //remove download feedback after 5 seconds
-        setTimeout(() => {
-          document.getElementById('download_feedback').innerText = '';
-        }, 5000);
-      });  
+document.getElementById("downloadBtn").onclick = function() {
+const now = new Date();
+const day = String(now.getDate()).padStart(2, '0');
+const month = String(now.getMonth() + 1).padStart(2, '0');
+fetch('/download')
+  .then(response => response.blob())
+  .then(blob => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    //a.download = 'data_.csv';
+    a.download = 'data_log_' + day + '-' + month + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    // Update feedback message to tell user download is complete
+    document.getElementById('download_feedback').innerText = 'Download complete!';
+  })
+  .catch(error => {
+    console.error('Error downloading file:', error);
+    document.getElementById('download_feedback').innerText = 'Download failed.';
+  })
+  .finally(() => {
+    //remove download feedback after 5 seconds
+    setTimeout(() => {
+      document.getElementById('download_feedback').innerText = '';
+    }, 5000);
+  });  
 }
 
-  // Update weight and send time to ESP32 every 5 seconds
-  setInterval(updateWeight, 5000);
+//clear data log button
+document.getElementById("clear_log_btn").onclick = function() {
+  if (confirm("Are you sure you want to clear this data log and start a new one? This action cannot be undone.")) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/clear', true);
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.send('clear=true');
+  }
+}
+
+// Update weight and send time to ESP32 every 5 seconds
+setInterval(updateWeight, 5000);
 
 </script>
 </body>
@@ -221,6 +241,27 @@ server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
     // Respond with a success message
     request->send(200, "text/plain", "Timestamp received: " + currentTime);
     Serial.println(timestamp);
+  });
+
+  server.on("/clear", HTTP_POST, [](AsyncWebServerRequest *request){
+    if (request->hasParam("clear", true) && request->getParam("clear", true)->value() == "true") {
+      File logFile = SPIFFS.open(logFileName, "w");
+      if (logFile){
+        //write new headers to file, overwrite old data
+        logFile.print("Time");
+        logFile.print(", ");
+        logFile.print("Weight");
+      //  logFile.print(", ");
+        logFile.println();
+      }
+      else {
+        Serial.println("Failed to open log file for writing.");
+      }
+      logFile.close();
+      request->send(200, "text/plain", "Log cleared");
+    } else {
+      request->send(400, "text/plain", "Failed to clear log");
+    }
   });
 
   server.onNotFound(notFound);

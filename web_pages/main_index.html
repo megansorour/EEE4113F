@@ -32,6 +32,15 @@
       cursor: pointer;
       border-radius: 10px;
       }
+    .box {
+      max-width: 70px;
+      min-height: 70px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #bddf98;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
       html {font-family: Arial; display: inline-block; text-align: center;}
       h2 {font-size: 3.0rem;}
       body {max-width: 600px; margin:0px auto; padding-bottom: 25px;}
@@ -40,34 +49,20 @@
 <body>
   <h1>Bird Weight Monitoring</h1>
   <div class="container">
-  <h2 style="font-size:40px;"> Weight: <span id="weight"></span>g</h2>
-</div>
-<p> Last update: <span id="datetime"></span> </p>
-    <!-- <button type="button" class="button"
-     onclick="logWeight()">Log current weight</button> 
-    <br>
-    <br> -->
-    <button class="button" id="downloadBtn">Download data log</button>
-    <p> Loading... <span id = "loading_indicator"></span> </p>
+    <h2 style="font-size:40px;"> Weight: <span id="weight"></span>g</h2>
+  </div>
+  <p> Last update: <span id="datetime"></span> </p>
+  <button class="button" id="downloadBtn">Download data log</button>
+  <br>
+  <br>
+  <button class="button" id="clear_log_btn">Clear data log</button>
+  <p id ="loading_indicator"> Loading... </p>
+  <p id="download_feedback"></p>
+  <div class="box">
+    <p>Events captured: <span id="num_logs"></span></p>
+  </div>
   
 <script>
-  document.onreadystatechange = function () {
-         if (document.readyState !== "complete") {
-            //document.querySelector("body").style.visibility = "hidden";
-            document.getElementById("loading_indicator").style.visibility = "visible";
-         } else {
-            setTimeout(() => {
-               document.getElementById("loading_indicator").style.display ="none";
-               //document.querySelector("body").style.visibility = "visible";
-            }, 3000)
-         }
-      };
-
-  function logWeight() {
-    // logging the measurement to the data array
-    dataLog.push(document.getElementById('datetime').innerText);
-    dataLog.push(document.getElementById('weight').innerText);
-  }
 
 function updateWeight() {
   fetch('/weight')
@@ -84,7 +79,7 @@ function updateWeight() {
   const currentTimeSec = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const currentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'});
   document.querySelector('#datetime').textContent = currentTimeSec;
-
+  document.getElementById('loading_indicator').style.visibility = "hidden";
   // Send time to ESP32
   console.log('Sending time:', currentTime);
   fetch('/upload', {
@@ -99,33 +94,47 @@ function updateWeight() {
   .catch(error => console.error('Error sending time:', error));
   }
 
-// Update weight and send time to ESP32 every 5 seconds
-setInterval(updateWeight, 5000);
-
 // download log button
-    document.getElementById("downloadBtn").onclick = function() {
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, '0');
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    fetch('/download')
-      .then(response => response.blob())
-      .then(blob => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        //a.download = 'data_.csv';
-        a.download = 'data_log_' + day + '-' + month + '.csv';
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-      })
-      .catch(error => console.error('Error downloading file:', error));
+document.getElementById("downloadBtn").onclick = function() {
+const now = new Date();
+const day = String(now.getDate()).padStart(2, '0');
+const month = String(now.getMonth() + 1).padStart(2, '0');
+fetch('/download')
+  .then(response => response.blob())
+  .then(blob => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    //a.download = 'data_.csv';
+    a.download = 'data_log_' + day + '-' + month + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    // Update feedback message to tell user download is complete
+    document.getElementById('download_feedback').innerText = 'Download complete!';
+  })
+  .catch(error => {
+    console.error('Error downloading file:', error);
+    document.getElementById('download_feedback').innerText = 'Download failed.';
+  })
+  .finally(() => {
+    //remove download feedback after 5 seconds
+    setTimeout(() => {
+      document.getElementById('download_feedback').innerText = '';
+    }, 5000);
+  });  
 }
 
-// Update weight every 5 seconds
-setInterval(updateWeight, 5000);
-//setInterval(checkUpdate, 5000);
+//clear data log button
+document.getElementById("clear_log_btn").onclick = function() {
+  if (confirm("Are you sure you want to clear this data log and start a new one? This action cannot be undone.")) {
+
+  }
+}
+
+// Update weight and send time to ESP32 every 5 seconds
+//setInterval(updateWeight, 5000);
 
 </script>
 </body>
