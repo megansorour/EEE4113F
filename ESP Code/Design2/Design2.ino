@@ -12,22 +12,40 @@ const char* logFileName = "/data.txt";
 const char *ssid = "DrongoScale";
 const char *password = "yourPassword7";
 
-const char* PARAM_INPUT_1 = "output";
-const char* PARAM_INPUT_2 = "state";
-const char* PARAM_INPUT_3 = "weight";
+//states (for updating webpage)
+int state = 0;
+// if 0: initial setup
+// if 1: bird just landed
+// if 2: idle
 
 String currentWeight = "0";
+
 String timestamp = "0";
 bool newTimestamp = false;
 
 int sim = 0;
 
+// Timer variables
+unsigned long lastTime = 0;  
+unsigned long timerDelay = 30000;
+
 //values for simulation
 int bird_there_sim[12]  = {0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1};
+//int bird_there_sim[12]  = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 bool birdThere = false;
 
 // Create AsyncWebServer object on port 80
 AsyncWebServer server(80);
+
+// Create an Event Source on /events
+AsyncEventSource events("/events");
+
+String processor(const String& var){
+  if(var == "WEIGHT"){
+    return String(currentWeight);
+  }
+  return String();
+}
 
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML><html>
@@ -64,15 +82,6 @@ const char index_html[] PROGMEM = R"rawliteral(
       cursor: pointer;
       border-radius: 10px;
       }
-    .box {
-      max-width: 70px;
-      min-height: 70px;
-      margin: 20px auto;
-      padding: 20px;
-      background-color: #bddf98;
-      border-radius: 10px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
       html {font-family: Arial; display: inline-block; text-align: center;}
       h2 {font-size: 3.0rem;}
       body {max-width: 600px; margin:0px auto; padding-bottom: 25px;}
@@ -80,51 +89,62 @@ const char index_html[] PROGMEM = R"rawliteral(
 </head>
 <body>
   <h1>Bird Weight Monitoring</h1>
+  <p id ="loading_indicator"> Loading... </p>
   <div class="container">
-    <h2 style="font-size:40px;"> Weight: <span id="weight"></span>g</h2>
+    <h2 style="font-size:40px;"> Weight: <span id="weight">%WEIGHT%</span> g</h2>
   </div>
   <p> Last update: <span id="datetime"></span> </p>
   <button class="button" id="downloadBtn">Download data log</button>
   <br>
   <br>
   <button class="button" id="clear_log_btn">Clear data log</button>
-  <p id ="loading_indicator"> Loading... </p>
-  <p id="download_feedback"></p>
-  <div class="box">
-    <p>Events captured: <span id="num_logs"></span></p>
-  </div>
+  <p id="feedback"></p>
   
 <script>
+var source;
+document.getElementById("weight").innerText = '0';
+if (!!window.EventSource) {
+  source = new EventSource('/events');
+ 
+ source.addEventListener('open', function(e) {
+  console.log("Events Connected");
+ }, false);
 
-function updateWeight() {
-  fetch('/weight')
-  .then(response => response.json())
-  .then(data => {
-    document.getElementById('weight').innerText = data.weight;
-  })
-  .catch(error => {
-    console.error('Error fetching weight:', error);
-  });
+ source.addEventListener('error', function(e) {
+  if (e.target.readyState != EventSource.OPEN) {
+    console.log("Events Disconnected");
+  }
+ }, false);
+ 
+ source.addEventListener('message', function(e) {
+  console.log("message", e.data);
+ }, false);
+ 
+ source.addEventListener('weight', function(e) {
+  console.log("weight", e.data);
+  document.getElementById("weight").innerText = e.data;
 
   // updating the time on webpage
   const now = new Date();
   const currentTimeSec = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const currentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'});
   document.querySelector('#datetime').textContent = currentTimeSec;
-  document.getElementById('loading_indicator').style.visibility = "hidden";
+
   // Send time to ESP32
-  console.log('Sending time:', currentTime);
-  fetch('/upload', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: 'plain=' + encodeURIComponent(currentTime)
-  })
-  .then(response => response.text())
-  .then(data => console.log('Response:', data))
-  .catch(error => console.error('Error sending time:', error));
-  }
+    console.log('Sending time:', currentTime);
+    fetch('/upload', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: 'plain=' + encodeURIComponent(currentTime)
+    })
+    .then(response => response.text())
+    .then(data => console.log('Response:', data))
+    .catch(error => console.error('Error sending time:', error));
+    document.getElementById('loading_indicator').style.visibility = "hidden";
+    }, false);
+}
 
 // download log button
 document.getElementById("downloadBtn").onclick = function() {
@@ -144,16 +164,16 @@ fetch('/download')
     a.click();
     window.URL.revokeObjectURL(url);
     // Update feedback message to tell user download is complete
-    document.getElementById('download_feedback').innerText = 'Download complete!';
+    document.getElementById('feedback').innerText = 'Download complete!';
   })
   .catch(error => {
     console.error('Error downloading file:', error);
-    document.getElementById('download_feedback').innerText = 'Download failed.';
+    document.getElementById('feedback').innerText = 'Download failed.';
   })
   .finally(() => {
     //remove download feedback after 5 seconds
     setTimeout(() => {
-      document.getElementById('download_feedback').innerText = '';
+      document.getElementById('feedback').innerText = '';
     }, 5000);
   });  
 }
@@ -165,12 +185,12 @@ document.getElementById("clear_log_btn").onclick = function() {
     xhr.open('POST', '/clear', true);
     xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
     xhr.send('clear=true');
+    document.getElementById('feedback').innerText = 'Data log cleared.';
+    setTimeout(() => {
+      document.getElementById('feedback').innerText = '';
+    }, 5000);
   }
 }
-
-// Update weight and send time to ESP32 every 5 seconds
-setInterval(updateWeight, 5000);
-
 </script>
 </body>
 </html>
@@ -182,7 +202,6 @@ setInterval(updateWeight, 5000);
   void notFound(AsyncWebServerRequest *request) {
   request->send(404, "text/plain", "The page not found");
   }
-
 
 void setup(){
   // Serial port for debugging purposes
@@ -199,7 +218,6 @@ void setup(){
     IPAddress myIP = WiFi.softAPIP();
     Serial.print("AP IP address: ");
     Serial.println(myIP);
-    //server.begin();
 
     // Route for root / web page (navigating to html thing defined as index_html) (home page)
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -251,7 +269,6 @@ server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
         logFile.print("Time");
         logFile.print(", ");
         logFile.print("Weight");
-      //  logFile.print(", ");
         logFile.println();
       }
       else {
@@ -264,10 +281,17 @@ server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
     }
   });
 
+  // Handle Web Server Events
+  events.onConnect([](AsyncEventSourceClient *client){
+    if(client->lastId()){
+      Serial.printf("Client reconnected! Last message ID that it got is: %u\n", client->lastId());
+    }
+    // send event with message "hello!", id current millis
+    // and set reconnect delay to 0.5 second
+    client->send("hello!", NULL, millis(), 5000);
+  });
+  server.addHandler(&events);
   server.onNotFound(notFound);
-
-  // Start server
-  server.begin();
 
   // setting up SPIFFS
   if (SPIFFS.begin(true)) {
@@ -276,31 +300,23 @@ server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
     Serial.println("SPIFFS mount failed. Check your filesystem.");
   }
 
-//setting up the data log column headers
-  File logFile = SPIFFS.open(logFileName, "a");
-
-  if (logFile){
-    //append weight and time to log file
-    logFile.print("Time");
-    logFile.print(", ");
-    logFile.print("Weight");
-    //logFile.print(", ");
-    logFile.println();
-  }
-  else {
-    Serial.println("Failed to open log file for writing.");
-  }
-  logFile.close();
-
-}
+  // Start server
+  server.begin();
+ }
 
 void loop() {
   //simulating some kind of data monitoring function which produces a weight value
-        delay(5000);
+        //delay(5000);
         birdThere = isBird();
         if (birdThere){
           currentWeight = getWeight();
-          if (newTimestamp){
+          
+          // Send Events to the Web Client with the Sensor Readings
+          //events.send("ping",NULL,millis());
+          events.send(String(currentWeight).c_str(),"weight",millis());
+          
+          lastTime = millis();
+          if (newTimestamp){ //only write to log if new timestamp, ie if client connected. This prevents erroneous data being recorded
             //opening the log file in append mode
             File logFile = SPIFFS.open(logFileName, "a");
 
@@ -309,7 +325,6 @@ void loop() {
               logFile.print(timestamp);
               logFile.print(", ");
               logFile.print(currentWeight);
-            //  logFile.print(", ");
               logFile.println();
             }
             else {
@@ -318,12 +333,21 @@ void loop() {
             logFile.close();
             newTimestamp = false; // Reset the flag
           }
+          state = 1;
         }
         else {
+          Serial.println("No bird");
           currentWeight = "0";
+          if (state == 1 || state == 0){ //first loop after bird leaves perch, update webpage to 0g
+            events.send("ping",NULL,millis());
+            events.send(String(currentWeight).c_str(),"weight",millis());
+            lastTime = millis();
+
+            state = 2; //back into idle state
+          }
         }
   sim ++;
-  delay(1000);
+  delay(5000);
 }
 //functions to simulate data processing subsystem
 bool isBird(){
