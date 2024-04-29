@@ -105,6 +105,10 @@ const char index_html[] PROGMEM = R"rawliteral(
 <script>
 var source;
 document.getElementById("weight").innerText = '0';
+
+const lastCleared = getTimestamp('lastCleared');
+const lastDownloaded = getTimestamp('lastDownloaded');
+
 if (!!window.EventSource) {
   source = new EventSource('/events');
  
@@ -129,23 +133,11 @@ if (!!window.EventSource) {
   // updating the time on webpage
   const now = new Date();
   const currentTimeSec = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const currentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'});
+  
   document.querySelector('#datetime').textContent = currentTimeSec;
-
-  // Send time to ESP32
-    console.log('Sending time:', currentTime);
-    fetch('/upload', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: 'plain=' + encodeURIComponent(currentTime)
-    })
-    .then(response => response.text())
-    .then(data => console.log('Response:', data))
-    .catch(error => console.error('Error sending time:', error));
-    document.getElementById('loading_indicator').style.visibility = "hidden";
-    }, false);
+  sendTime();
+  document.getElementById('loading_indicator').style.visibility = "hidden";
+  }, false);
 }
 
 // download log button
@@ -174,6 +166,7 @@ fetch('/download')
   })
   .finally(() => {
     //remove download feedback after 5 seconds
+    saveTimestamp('lastDownloaded');
     setTimeout(() => {
       document.getElementById('feedback').innerText = '';
     }, 5000);
@@ -182,17 +175,76 @@ fetch('/download')
 
 //clear data log button
 document.getElementById("clear_log_btn").onclick = function() {
-  if (confirm("Are you sure you want to clear this data log and start a new one? This action cannot be undone.")) {
+  let lastClearedString;
+  let lastDownloadedString;
+  let msg;
+  if (getTimestamp('lastCleared')){
+    lastClearedString = new Date(getTimestamp('lastCleared')).toLocaleString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' });
+  }
+  else {
+    lastClearedString = '<error getting start date>';
+  }
+  if (getTimestamp('lastDownloaded')) {
+    lastDownloadedString = new Date(getTimestamp('lastDownloaded')).toLocaleString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' });
+  }
+  else {
+    lastDownloadedString = 'never';
+  }
+  if (!getTimestamp('lastCleared')) {
+    msg = "Are you sure you want to clear the current data log and start a new one?";
+  }
+  else if ((!getTimestamp('lastDownloaded'))&(getTimestamp(lastCleared))) {
+    msg = "Are you sure you want to clear the data log started on " + lastClearedString +"? It has not been downloaded yet."
+  }
+  else {
+    msg = "Are you sure you want to clear the data log started on " + lastClearedString + " and start a new one? The last time a data log was downloaded was " + lastDownloadedString + ".";
+  }
+  if (confirm(msg)) {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/clear', true);
     xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
     xhr.send('clear=true');
     document.getElementById('feedback').innerText = 'Data log cleared.';
+    saveTimestamp('lastCleared');
     setTimeout(() => {
       document.getElementById('feedback').innerText = '';
     }, 5000);
   }
 }
+// Send time to ESP32
+function sendTime(){
+  const now = new Date();
+  const currentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'});
+  console.log('Sending time:', currentTime);
+  fetch('/upload', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: 'plain=' + encodeURIComponent(currentTime)
+  })
+  .then(response => response.text())
+  .then(data => console.log('Response:', data))
+  .catch(error => console.error('Error sending time:', error));
+  }
+
+// Function to save the timestamp to localStorage
+function saveTimestamp(key) {
+  const now = new Date();
+  localStorage.setItem(key, now.toString());
+}
+
+// Function to retrieve the timestamp from localStorage
+function getTimestamp(key) {
+  const timestamp = localStorage.getItem(key);
+  if (timestamp) {
+    return new Date(timestamp);
+  }
+  return null;
+}
+
+
+
 </script>
 </body>
 </html>
