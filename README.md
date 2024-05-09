@@ -1,3 +1,5 @@
 *EEE4113F: Engineering System Design*
 
-End-user data monitoring and communciation subsystem
+*Megan Sorour*
+
+End-user data monitoring, data and communciation subsystem.
