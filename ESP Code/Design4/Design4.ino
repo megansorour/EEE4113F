@@ -1,10 +1,8 @@
 #include <WiFi.h>
-#include <WiFiClient.h>
 #include <WiFiAP.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include "SPIFFS.h"
-#include <FS.h>
 
 const char* logFileName = "/data.txt";
 
@@ -13,8 +11,8 @@ const char *password = "yourPassword7";
 
 //states (for updating webpage)
 int state = 0;
-// if 0: initial setup
-// if 1: bird just landed
+// if 0: start up
+// if 1: bird just left
 // if 2: idle
 
 String currentWeight = "0";
@@ -27,7 +25,7 @@ bool newTimestamp = false;
 int sim = 0;
 
 //values for simulation
-int bird_there_sim[12]  = {0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1};
+int bird_there_sim[12]  = {0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1};
 //int bird_there_sim[12]  = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 bool birdThere = false;
 
@@ -37,11 +35,21 @@ AsyncWebServer server(80);
 // Create an Event Source on /events
 AsyncEventSource events("/events");
 
-String processor(const String& var){
-  if(var == "WEIGHT"){
-    return String(currentWeight);
+//functions to simulate data processing subsystem
+bool isBird(){
+  delay(100);
+  if (bird_there_sim[sim]==0){
+    return false;
   }
-  return String();
+  else {
+    return true;
+  }
+}
+
+String getWeight(){
+  delay(2000);
+  currentWeight = random(500); //random weight value
+  return currentWeight;
 }
 
 const char index_html[] PROGMEM = R"rawliteral(
@@ -52,24 +60,28 @@ const char index_html[] PROGMEM = R"rawliteral(
   <link rel="icon" href="data:,">
   <style>
   body {
-      font-family: Arial, sans-serif;
+    font-family: Arial, sans-serif;
       text-align: center;
       margin: 0;
       padding: 0;
+      color: #212121;
+      background-color:#fdf7eb; 
     }
   .container {
-      max-width: 400px;
-      min-height: 50px;
+      max-width: 320px;
+      min-height: 120px;
       margin: 20px auto;
-      padding: 20px;
-      background-color: #f4f4f4;
+      text-align: center;
+      padding: 14px;
+      background-color: #fffefb;
       border-radius: 10px;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
   .button {
-      background-color: #c8c8c8;
+      background-color: #f2e7d1;
+      min-width: 181px;
       border: none;
-      color: #000000;
+      color: #212121;
       padding: 10px 24px;
       text-align: center;
       text-decoration: none;
@@ -78,28 +90,66 @@ const char index_html[] PROGMEM = R"rawliteral(
       margin: 4px 2px;
       cursor: pointer;
       border-radius: 10px;
+      transition: background-color 0.3s, color 0.3s, transform 0.3s, box-shadow 0.3s;
       }
-      html {font-family: Arial; display: inline-block; text-align: center;}
-      h2 {font-size: 3.0rem;}
+    .button:active {
+      background-color: #e0cba8;
+      color: #fff;
+      transform: translateY(1px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+      html {display: inline-block; text-align: center;}
+      h1 {
+          font-family: Georgia, serif; 
+          color: #212121; 
+          font-weight: normal;
+          position: relative;
+          display: inline-block;}
+      h1::after {
+        content: '';
+        position: absolute;
+        bottom: -10px; /* Adjust this value to move the line closer or further from the text */
+        left: 50%; /* Position the line in the center */
+        width: 200px; /* Set the width of the line */
+        height: 3px; /* Set the height (thickness) of the line */
+        background-color: #e78b68; /* Set the color of the line */
+        transform: translateX(-50%); /* Center the line horizontally */
+        border-radius: 5px;
+    }
+      h2 {font-size: 3.0rem; color: #212121;}
       body {max-width: 600px; margin:0px auto; padding-bottom: 25px;}
+    #weightDisplay {
+        font-family: Arial, sans-serif;
+        font: Arial;
+        font-size:38px;
+        font-weight: bold;
+        color: #212121;
+        text-align: center;
+        display: flex;
+        justify-content: center; 
+        align-items: center; 
+        height: 74px; /* container height */ 
+    }
   </style>
 </head>
 <body>
   <h1>Bird Weight Monitoring</h1>
   <p id ="loading_indicator"> Loading... </p>
-  <div class="container">
-    <h2 style="font-size:40px;"> Weight: <span id="weight">%WEIGHT%</span> g</h2>
+   <div class="container">
+    <p id="weightDisplay"> No birds detected yet </p>
   </div>
   <p> Last update: <span id="datetime"></span> </p>
-  <button class="button" id="downloadBtn">Download data log</button>
   <br>
   <br>
-  <button class="button" id="clear_log_btn">Clear data log</button>
+  <button class="button" id="downloadBtn" style="background-color: #e0d0ac;">Download data log</button>
+  <br>
+  <br>
+  <br>
+  <button class="button" id="clear_log_btn" style="background-color: #e24a4a6f;">Clear data log</button>
   <p id="feedback"></p>
   
 <script>
 var source;
-document.getElementById("weight").innerText = '0';
 
 const lastCleared = getTimestamp('lastCleared');
 const lastDownloaded = getTimestamp('lastDownloaded');
@@ -122,9 +172,19 @@ if (!!window.EventSource) {
  }, false);
  
  source.addEventListener('weight', function(e) {
-  console.log("weight", e.data);
-  document.getElementById("weight").innerText = e.data;
-
+  console.log('weight', e.data);
+  if (e.data == "NewBird") {
+    document.getElementById('weightDisplay').textContent = 'New bird detected';
+    document.getElementById('weightDisplay').style.fontSize = '38px';
+    document.getElementById('weightDisplay').style.textAlign = 'center';
+  }
+  else if (e.data == "Startup") {
+    return;
+  }
+  else {
+    document.getElementById('weightDisplay').textContent = 'Weight: ' + e.data +' g';
+    document.getElementById('weightDisplay').style.fontSize = '38px';
+}
   // updating the time on webpage
   const now = new Date();
   const currentTimeSec = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -199,12 +259,25 @@ document.getElementById("clear_log_btn").onclick = function() {
     xhr.open('POST', '/clear', true);
     xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
     xhr.send('clear=true');
-    document.getElementById('feedback').innerText = 'Data log cleared.';
-    saveTimestamp('lastCleared');
-    setTimeout(() => {
-      document.getElementById('feedback').innerText = '';
-    }, 5000);
+    xhr.onload = function() {
+    if (xhr.status == 200) {
+      document.getElementById('feedback').innerText = 'Data log cleared.';
+      saveTimestamp('lastCleared');
+      setTimeout(() => {
+        document.getElementById('feedback').innerText = '';
+      }, 5000);
   }
+  else {
+        document.getElementById('feedback').innerText = 'Clearing data log failed.';
+      }
+  }
+    xhr.onerror = function() {
+      document.getElementById('feedback').innerText = 'Clearing data log failed.';
+      setTimeout(() => {
+        document.getElementById('feedback').innerText = '';
+      }, 5000);
+    }
+}
 }
 // Send time to ESP32
 function sendTime(){
@@ -237,8 +310,6 @@ function getTimestamp(key) {
   }
   return null;
 }
-
-
 
 </script>
 </body>
@@ -351,60 +422,56 @@ server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
 
 void loop() {
   //simulating some kind of data monitoring function which produces a weight value
-        //delay(5000);
         birdThere = isBird();
-        if (birdThere){
-          currentWeight = getWeight();
-          
-          // Send Events to the Web Client with the Sensor Readings
-          //events.send("ping",NULL,millis());
-          events.send(String(currentWeight).c_str(),"weight",millis());
-          
-          if (newTimestamp){ //only write to log if new timestamp, ie if client connected. This prevents erroneous data being recorded
-            //opening the log file in append mode
-            File logFile = SPIFFS.open(logFileName, "a");
+        if ((birdThere)&&state==2){
+          currentWeight = "NewBird";
+          //bird just landed on scale
 
-            if (logFile){
-              //append weight and time to log file
-              logFile.print(timestamp);
-              logFile.print(", ");
-              logFile.print(currentWeight);
-              logFile.println();
+          //notify client that bird detected
+          events.send("ping",NULL,millis());
+          events.send(String(currentWeight).c_str(),"weight",millis());
+
+          //simulating data processing getWeight function
+          currentWeight = getWeight(); 
+          state = 1; //bird leaves scale
+        }
+          else if (state == 1){ //first loop after bird leaves perch, update webpage to final weight measurement
+            // Send events to the web client with the weight measurement
+            events.send(String(currentWeight).c_str(),"weight",millis());
+          
+            if (newTimestamp){ //only write to log if new timestamp, ie if client connected. This prevents erroneous data being recorded
+              //opening the log file in append mode
+              File logFile = SPIFFS.open(logFileName, "a");
+
+              if (logFile){
+                //append weight and time to log file
+                logFile.print(timestamp);
+                logFile.print(", ");
+                logFile.print(currentWeight);
+                logFile.println();
+              }
+              else {
+                Serial.println("Failed to open log file for writing.");
+              }
+              logFile.close();
+              newTimestamp = false; // Reset the flag
             }
-            else {
-              Serial.println("Failed to open log file for writing.");
-            }
-            logFile.close();
-            newTimestamp = false; // Reset the flag
-          }
-          state = 1;
+
+            state = 2; //back into idle state
+        }
+        else if (state == 0){ //initial message to webpage after first start-up
+          currentWeight = "Startup";
+
+          //notify client once setup
+          events.send("ping",NULL,millis());
+          events.send(String(currentWeight).c_str(),"weight",millis());
+          state = 2; //set state to idle, so it doesn't keep updating webpage with startup event
         }
         else {
           Serial.println("No bird");
           currentWeight = "0";
-          if (state == 1 || state == 0){ //first loop after bird leaves perch, update webpage to 0g
-            events.send("ping",NULL,millis());
-            events.send(String(currentWeight).c_str(),"weight",millis());
-
-            state = 2; //back into idle state
-          }
         }
   sim ++;
   delay(5000);
 }
-//functions to simulate data processing subsystem
-bool isBird(){
-  delay(100);
-  if (bird_there_sim[sim]==0){
-    return false;
-  }
-  else {
-    return true;
-  }
-}
 
-String getWeight(){
-  delay(1000);
-  currentWeight = random(500); //random weight value
-  return currentWeight;
-}
