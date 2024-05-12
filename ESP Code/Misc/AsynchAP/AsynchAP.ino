@@ -274,6 +274,12 @@ void setup(){
 
 void loop() {
   //simulating some kind of data monitoring function which produces a weight value
+    if (WiFi.softAPgetStationNum()>0){
+    Serial.println("Connected to AP" + millis());
+  }
+  else {
+    Serial.println("Now millis" + millis());
+  }
   if (sim == 0 || sim == 3 || sim == 5){
         delay(10000);
         currentWeight = random(500); //weight value
@@ -294,6 +300,6 @@ void loop() {
         logFile.close();
   }
   sim ++;
-  delay(10000);
+  //delay(10000);
 
 }

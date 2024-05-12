@@ -26,8 +26,9 @@ bool newTimestamp = false;
 int sim = 0;
 
 //values for simulation
-int bird_there_sim[12]  = {0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1};
-//int bird_there_sim[12]  = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+//int bird_there_sim[12]  = {0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1};
+int bird_there_sim[12]  = {0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1};
+int weight_sim[12] = {0, 111, 0, 222, 0, 333, 0, 444, 0, 555, 0, 666};
 bool birdThere = false;
 
 // Create AsyncWebServer object on port 80
@@ -49,7 +50,8 @@ bool isBird(){
 
 String getWeight(){
   delay(2000);
-  currentWeight = random(500); //random weight value
+  //currentWeight = random(500); //random weight value
+  currentWeight = weight_sim[sim];
   return currentWeight;
 }
 
@@ -420,6 +422,12 @@ server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
 
 void loop() {
   //simulating some kind of data monitoring function which produces a weight value
+  if (WiFi.softAPgetStationNum()>0){
+    Serial.println("Connected to AP" + millis());
+  }
+  else {
+    Serial.println("Now millis" + millis());
+  }
         birdThere = isBird();
         if ((birdThere)&&state==2){
           currentWeight = "NewBird";
@@ -469,7 +477,11 @@ void loop() {
           Serial.println("No bird");
           currentWeight = "0";
         }
-  sim ++;
-  delay(5000);
+  if (sim > 12){
+    sim = 0;
+  } else{
+    sim ++;
+  }
+  //delay(5000);
 }
 
