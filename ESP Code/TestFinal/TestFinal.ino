@@ -1,3 +1,6 @@
+//Author: Megan Sorour
+//This sketch is a modification of the final design to incporate testing for ATP3, ATP5 and ATP8.
+
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiAP.h>
@@ -23,10 +26,18 @@ String lastStart; //timestamp of time user started new data log
 String timestamp = "0";
 bool newTimestamp = false;
 
+//to test ATP3:
+float tic;
+float toc;
+float time_test;
+
 int sim = 0;
 
 //values for simulation
 //int bird_there_sim[12]  = {0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1};
+//int bird_there_sim[12]  = {0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1};
+
+//For ATP5 and ATP5 and ATP8
 int bird_there_sim[12]  = {0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1};
 int weight_sim[12] = {0, 111, 0, 222, 0, 333, 0, 444, 0, 555, 0, 666};
 bool birdThere = false;
@@ -422,17 +433,12 @@ server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
 
 void loop() {
   //simulating some kind of data monitoring function which produces a weight value
-  if (WiFi.softAPgetStationNum()>0){
-    Serial.println("Connected to AP" + millis());
-  }
-  else {
-    Serial.println("Now millis" + millis());
-  }
         birdThere = isBird();
         if ((birdThere)&&state==2){
+          Serial.println('isbird');
           currentWeight = "NewBird";
           //bird just landed on scale
-
+          
           //notify client that bird detected
           events.send("ping",NULL,millis());
           events.send(String(currentWeight).c_str(),"weight",millis());
@@ -443,9 +449,19 @@ void loop() {
         }
           else if (state == 1){ //first loop after bird leaves perch, update webpage to final weight measurement
             // Send events to the web client with the weight measurement
+            //starts timer for ATP3
+            tic = millis();
+            Serial.println(millis());
             events.send(String(currentWeight).c_str(),"weight",millis());
           
             if (newTimestamp){ //only write to log if new timestamp, ie if client connected. This prevents erroneous data being recorded
+            //ends timer for ATP3
+            toc = millis();
+            Serial.println(millis());
+            time_test = toc - tic;
+            Serial.println("Delay:");
+            Serial.println(time_test);
+
               //opening the log file in append mode
               File logFile = SPIFFS.open(logFileName, "a");
 
@@ -477,11 +493,13 @@ void loop() {
           Serial.println("No bird");
           currentWeight = "0";
         }
+  //controlling simulation
   if (sim > 12){
     sim = 0;
   } else{
     sim ++;
   }
+  //delay removed for testing delays
   //delay(5000);
 }
 

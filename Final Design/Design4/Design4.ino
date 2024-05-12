@@ -1,3 +1,7 @@
+//Author: Megan Sorour
+//May 2024
+//Sketch made for ESP32 for the end-user data monitoring and communications subsystem for weight monitoring fork-tailed Drongos.
+
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WiFiAP.h>
@@ -5,8 +9,9 @@
 #include <ESPAsyncWebServer.h>
 #include "SPIFFS.h"
 
-const char* logFileName = "/data.txt";
+const char* logFileName = "/data.txt"; //filename of data log
 
+//AP details
 const char *ssid = "DrongoScale";
 const char *password = "yourPassword7";
 
@@ -16,30 +21,28 @@ int state = 0;
 // if 1: bird just left
 // if 2: idle
 
-String currentWeight = "0";
-String lastDownload; //timestamp of the last time user downloaded the data log
-String lastStart; //timestamp of time user started new data log
+String currentWeight = "0"; //stores current weight from data processing subsystem
 
-String timestamp = "0";
-bool newTimestamp = false;
+String timestamp = "0"; //stores most recent timestamp from client-side
+bool newTimestamp = false; //flag to determine if new timestamp has been sent
 
-int sim = 0;
+int sim = 0; //controls simulation
 
 //values for simulation
 int bird_there_sim[12]  = {0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1};
 //int bird_there_sim[12]  = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-bool birdThere = false;
+bool birdThere = false; //flag showing whether a bird is detected on the scale or not
 
-// Create AsyncWebServer object on port 80
+// AsyncWebServer object on TCP port 80
 AsyncWebServer server(80);
 
-// Create an Event Source on /events
+// Event Source on /events
 AsyncEventSource events("/events");
 
 //functions to simulate data processing subsystem
 bool isBird(){
   delay(100);
-  if (bird_there_sim[sim]==0){
+  if (bird_there_sim[sim]==0){ //go through values in array for simulation
     return false;
   }
   else {
@@ -49,10 +52,11 @@ bool isBird(){
 
 String getWeight(){
   delay(2000);
-  currentWeight = random(500); //random weight value
+  currentWeight = random(500); //generate random weight value
   return currentWeight;
 }
 
+//webpage html and JavaScript framework:
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML><html>
 <head>
@@ -333,17 +337,13 @@ void setup(){
     Serial.print("AP IP address: ");
     Serial.println(myIP);
 
-    // Route for root '/' web page (navigating to html defined as index_html) (home page)
+    // Route for root '/' web page (serving html defined as index_html)
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send_P(200, "text/html", index_html);
   });
 
-  // Set up the endpoint to return the current weight value
-  // server.on("/weight", HTTP_GET, [](AsyncWebServerRequest *request) {
-  //   request->send(200, "application/json", String("{\"weight\":") + currentWeight + "}");
-  // });
 
-//sending the data log to the server for user to download
+// Sending the data log to the server for user to download
 server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
     Serial.println("Download request received");
     
@@ -357,6 +357,7 @@ server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
     file.close();
   });
 
+  // Endpoint for client sending recent timestamp
   server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request){
     // Get the timestamp value from body of request
     String currentTime;
@@ -375,11 +376,13 @@ server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
     Serial.println(timestamp);
   });
 
+  //Endpoint for user requesting to clear data log
   server.on("/clear", HTTP_POST, [](AsyncWebServerRequest *request){
     if (request->hasParam("clear", true) && request->getParam("clear", true)->value() == "true") {
+      //Open data log in write mode to overwrite existing data
       File logFile = SPIFFS.open(logFileName, "w");
       if (logFile){
-        //write new headers to file, overwrite old data
+        //Write new column headers to file
         logFile.print("Time");
         logFile.print(", ");
         logFile.print("Weight");
@@ -389,18 +392,19 @@ server.on("/download", HTTP_GET, [](AsyncWebServerRequest *request){
         Serial.println("Failed to open log file for writing.");
       }
       logFile.close();
+      //Success message if complete
       request->send(200, "text/plain", "Log cleared");
     } else {
+      //Otherwise error message
       request->send(400, "text/plain", "Failed to clear log");
     }
   });
 
-  // Handle Web Server Events
+  // Handling web server events
   events.onConnect([](AsyncEventSourceClient *client){
     if(client->lastId()){
       Serial.printf("Client reconnected! Last message ID that it got is: %u\n", client->lastId());
     }
-    // send event with message "hello!", id current millis
     // and set reconnect delay to 0.5 second
     client->send("Server hello!", NULL, millis(), 5000);
   });
@@ -470,6 +474,7 @@ void loop() {
           currentWeight = "0";
         }
   sim ++;
+  //Optional delay, helpful for simulating process and analysing webpage
   delay(5000);
 }
 
